@@ -1,5 +1,6 @@
 import { IBooking } from "./../../../db/model/booking.interface";
 import BookingController from "../../../app/controller/booking.controller";
+import { stubInterface } from "ts-sinon";
 import { IBookingService } from "../../../app/service/booking.service";
 import IPaymentService from "../../../app/service/payment.service.inteface";
 import { BookingState } from "../../../db/model/booking.interface";
@@ -7,7 +8,6 @@ import { mockResponse, mockRequest } from "mock-req-res";
 import chai from "chai";
 chai.use(require("chai-as-promised"));
 chai.use(require("sinon-chai"));
-import { stubInterface } from "ts-sinon";
 
 let expect = chai.expect;
 
@@ -53,6 +53,7 @@ describe("Booking Controller", () => {
   afterEach(() => {
     mockRes.send.resetHistory();
     mockRes.status.resetHistory();
+    mockRes.sendStatus.resetHistory();
     mockBookingService.deleteBookings.resetHistory();
     mockBookingService.createBooking.resetHistory();
     mockBookingService.getBookingById.resetHistory();
@@ -126,19 +127,24 @@ describe("Booking Controller", () => {
       ).to.have.been.calledWith(stubBooking.id, BookingState.CONFIRMED);
     });
 
-    it("should not update the state and send status 403 if verifyPayment return false", async () => {
+    it("should update the state back to created and send status 201, return payment_status if verifyPayment return false", async () => {
       setUpBooking();
 
       mockPaymentService.verifyPayment.resolves(false);
 
       await booking.createBooking(mockReq, mockRes);
 
-      expect(mockRes.status).to.have.been.calledWith(403);
+      expect(mockRes.status).to.have.been.calledWith(201);
+      expect(mockBookingService.updateBookingStatusById).have.been.calledWith(
+        stubBooking.id,
+        BookingState.CREATED
+      );
+      expect(mockRes.json).to.have.been.calledWith({
+        id: stubBooking.id,
+        payment_status: "Payment rejected",
+      });
     });
-
-    it.skip("should return 403 if booking clash with existing in db", async () => {});
   });
-
   describe("processPayment", () => {
     it("should return status 403 if no paymentInfo is provided", async () => {
       setUpBooking();
@@ -161,7 +167,7 @@ describe("Booking Controller", () => {
 
       await booking.processPayment(mockReq, mockRes);
 
-      expect(mockRes.status).to.have.been.calledWith(404);
+      expect(mockRes.sendStatus).to.have.been.calledWith(404);
     });
 
     it("should return 403 if booking state is awaiting payment", async () => {
@@ -211,7 +217,7 @@ describe("Booking Controller", () => {
       ).to.have.been.calledWith(stubBooking.id, BookingState.CONFIRMED);
     });
 
-    it("should send code 201 once completed", async () => {
+    it("should send code 200 once completed", async () => {
       setUpBooking();
 
       mockBookingService.getBookingById.resolves({
@@ -223,7 +229,7 @@ describe("Booking Controller", () => {
 
       await booking.processPayment(mockReq, mockRes);
 
-      expect(mockRes.status).to.have.been.calledOnceWith(201);
+      expect(mockRes.sendStatus).to.have.been.calledOnceWith(200);
     });
 
     it("should update the state back to created and send status 403 if verifyPayment return false", async () => {
@@ -254,7 +260,7 @@ describe("Booking Controller", () => {
       await booking.cancelBooking(mockReq, mockRes);
 
       expect(mockBookingService.updateBookingStatusById).have.not.been.called;
-      expect(mockRes.status).to.have.been.calledWith(404);
+      expect(mockRes.sendStatus).to.have.been.calledWith(404);
     });
 
     it("should return the booking with state canceled", async () => {
@@ -281,7 +287,7 @@ describe("Booking Controller", () => {
 
       await booking.getBooking(mockReq, mockRes);
 
-      expect(mockRes.status).to.have.been.calledWith(404);
+      expect(mockRes.sendStatus).to.have.been.calledWith(404);
     });
     it("should return status 200 and booking with the correct id", async () => {
       //Arrange
@@ -314,7 +320,7 @@ describe("Booking Controller", () => {
       expect(
         mockBookingService.deleteBookings
       ).to.have.been.calledOnceWithExactly();
-      expect(mockRes.status).to.have.been.calledWith(200);
+      expect(mockRes.sendStatus).to.have.been.calledWith(200);
     });
   });
 });

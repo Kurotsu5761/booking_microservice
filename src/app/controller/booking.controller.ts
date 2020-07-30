@@ -47,8 +47,31 @@ class BookingController {
                           return res.status(201).json({ id: savedBooking.id });
                         });
                     } else {
-                      return res.status(403).send("Payment rejected");
+                      return this.bookingService
+                        .updateBookingStatusById(
+                          savedBooking.id,
+                          BookingState.CREATED
+                        )
+                        .then(() => {
+                          return res.status(201).json({
+                            id: savedBooking.id,
+                            payment_status: "Payment rejected",
+                          });
+                        });
                     }
+                  })
+                  .catch((err) => {
+                    return this.bookingService
+                      .updateBookingStatusById(
+                        savedBooking.id,
+                        BookingState.CREATED
+                      )
+                      .then(() => {
+                        return res.status(201).json({
+                          id: savedBooking.id,
+                          payment_status: "Payment rejected",
+                        });
+                      });
                   });
               });
           } else {
@@ -73,7 +96,7 @@ class BookingController {
       return this.bookingService
         .getBookingById(req.params["id"])
         .then((foundBooking) => {
-          if (!foundBooking) return res.status(404);
+          if (!foundBooking) return res.sendStatus(404);
           if (foundBooking.state === BookingState.AWAITING_PAYMENT)
             return res.status(403).send("Payment already under process");
           if (foundBooking.state !== BookingState.CREATED)
@@ -96,7 +119,7 @@ class BookingController {
                         BookingState.CONFIRMED
                       )
                       .then(() => {
-                        return res.status(201).json({ id: foundBooking.id });
+                        return res.sendStatus(200);
                       });
                   } else {
                     return this.bookingService
@@ -108,6 +131,16 @@ class BookingController {
                         return res.status(403).send("Payment rejected");
                       });
                   }
+                })
+                .catch((err) => {
+                  return this.bookingService
+                    .updateBookingStatusById(
+                      foundBooking.id,
+                      BookingState.CREATED
+                    )
+                    .then(() => {
+                      return res.status(403).send("Payment rejected");
+                    });
                 });
             });
         });
@@ -119,7 +152,7 @@ class BookingController {
       return this.bookingService
         .getBookingById(req.params["id"])
         .then((foundBooking) => {
-          if (!foundBooking) return res.status(404);
+          if (!foundBooking) return res.sendStatus(404);
           return this.bookingService
             .updateBookingStatusById(foundBooking.id, BookingState.CANCELED)
             .then((booking) => {
@@ -128,7 +161,7 @@ class BookingController {
         });
     } catch (error) {
       console.error(error);
-      return res.status(500);
+      return res.sendStatus(500);
     }
   };
 
@@ -137,7 +170,7 @@ class BookingController {
       return this.bookingService
         .getBookingById(req.params["id"])
         .then((foundBooking) => {
-          if (!foundBooking) return res.status(404);
+          if (!foundBooking) return res.sendStatus(404);
           return res.status(200).json(foundBooking);
         });
     } catch (error) {
@@ -156,11 +189,11 @@ class BookingController {
     return this.bookingService
       .deleteBookings()
       .then(() => {
-        return res.status(200);
+        return res.sendStatus(200);
       })
       .catch((err) => {
         console.error(err);
-        return res.status(500);
+        return res.sendStatus(500);
       });
   };
 }
